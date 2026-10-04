@@ -1,0 +1,1071 @@
+:root {
+  --bg-base: #0b1310;
+  --bg-surface: #121f1a;
+  --bg-elevated: #192b24;
+  --bg-card-hover: #20362e;
+  --bg-header-glass: rgba(11, 19, 16, 0.92);
+  --bg-nav-glass: rgba(11, 19, 16, 0.95);
+  --bg-highlight-grad: linear-gradient(145deg, #13251e, #101c17);
+  --bg-rec-badge: rgba(255, 255, 255, 0.07);
+  --bg-status-dot: rgba(255, 255, 255, 0.14);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-active: rgba(16, 185, 129, 0.45);
+  --text-primary: #f3f8f5;
+  --text-secondary: #a7bdb4;
+  --text-muted: #6f8a7f;
+  --accent-green: #10b981;
+  --accent-green-bright: #34d399;
+  --accent-green-dim: rgba(16, 185, 129, 0.14);
+  --accent-blue: #38bdf8;
+  --accent-blue-dim: rgba(56, 189, 248, 0.14);
+  --accent-amber: #fbbf24;
+  --accent-amber-dim: rgba(251, 191, 36, 0.15);
+  --accent-purple: #c084fc;
+  --accent-purple-dim: rgba(192, 132, 252, 0.15);
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] {
+  --bg-base: #f3f7f5;
+  --bg-surface: #ffffff;
+  --bg-elevated: #edf4f0;
+  --bg-card-hover: #e2ede7;
+  --bg-header-glass: rgba(255, 255, 255, 0.92);
+  --bg-nav-glass: rgba(255, 255, 255, 0.96);
+  --bg-highlight-grad: linear-gradient(145deg, #e6f7ef, #f2fbf7);
+  --bg-rec-badge: rgba(5, 150, 105, 0.08);
+  --bg-status-dot: rgba(15, 31, 24, 0.15);
+  --border-subtle: rgba(15, 31, 24, 0.1);
+  --border-active: rgba(5, 150, 105, 0.45);
+  --text-primary: #0d1f17;
+  --text-secondary: #3f594e;
+  --text-muted: #648275;
+  --accent-green: #059669;
+  --accent-green-bright: #047857;
+  --accent-green-dim: rgba(5, 150, 105, 0.12);
+  --accent-blue: #0284c7;
+  --accent-blue-dim: rgba(2, 132, 199, 0.11);
+  --accent-amber: #d97706;
+  --accent-amber-dim: rgba(217, 119, 6, 0.12);
+  --accent-purple: #7e22ce;
+  --accent-purple-dim: rgba(126, 34, 206, 0.1);
+  --shadow-soft: 0 6px 20px rgba(13, 31, 23, 0.07);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+button,
+input,
+label {
+  font-family: inherit;
+  touch-action: manipulation;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.app-shell {
+  max-width: 680px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Sticky Header */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--bg-header-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 12px 16px 10px;
+}
+
+.header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.race-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-green-bright);
+  background: var(--accent-green-dim);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-bottom: 4px;
+}
+
+.app-title {
+  font-size: 1.18rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.app-subtitle {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.btn-icon-theme,
+.btn-pill-today {
+  background: var(--bg-elevated);
+  color: var(--accent-green-bright);
+  border: 1px solid var(--border-active);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.12s ease, background 0.15s ease;
+}
+
+.btn-icon-theme:active,
+.btn-pill-today:active {
+  transform: scale(0.95);
+}
+
+/* Overall Stats Bar */
+.overall-stats-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-top: 10px;
+}
+
+.stat-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.stat-label {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.stat-value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sync-indicator {
+  color: var(--accent-green-bright);
+}
+
+.stat-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border-subtle);
+}
+
+.overall-progress-track {
+  height: 5px;
+  background: var(--bg-surface);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.overall-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent-green), var(--accent-blue));
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+/* Main Content */
+.app-main {
+  flex: 1;
+  padding: 14px 16px 24px;
+}
+
+.tab-view {
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tab-view.active {
+  display: flex;
+}
+
+/* Week Selector */
+.selector-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.selector-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.week-date-range {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent-green-bright);
+}
+
+.week-pills-scroll {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.week-pills-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.week-pill {
+  flex: 0 0 auto;
+  min-width: 56px;
+  padding: 8px 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.week-pill-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.week-pill-sub {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.week-pill.active {
+  background: var(--accent-green-dim);
+  border-color: var(--accent-green);
+  color: var(--text-primary);
+}
+
+.week-pill.active .week-pill-sub {
+  color: var(--accent-green-bright);
+}
+
+.week-pill.completed {
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+/* Phase Info Banner */
+.phase-banner {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent-green);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.phase-banner-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.phase-period-tag,
+.phase-gym-tag,
+.phase-km-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.phase-period-tag {
+  background: var(--accent-green-dim);
+  color: var(--accent-green-bright);
+}
+
+.phase-gym-tag {
+  background: var(--accent-purple-dim);
+  color: var(--accent-purple);
+}
+
+.phase-km-tag {
+  background: var(--accent-blue-dim);
+  color: var(--accent-blue);
+}
+
+.phase-goal-text {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* 7-Day Selector Strip */
+.day-tabs-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.day-tab-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.day-tab-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.day-tab-num {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.day-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bg-status-dot);
+}
+
+.day-tab-btn.status-done .day-status-dot {
+  background: var(--accent-green);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+}
+
+.day-tab-btn.status-partial .day-status-dot {
+  background: var(--accent-amber);
+}
+
+.day-tab-btn.active {
+  background: var(--bg-elevated);
+  border-color: var(--accent-green);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.day-tab-btn.active .day-tab-num {
+  color: var(--accent-green-bright);
+}
+
+/* Active Day Workout Card */
+.day-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.day-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.day-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.day-date-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.day-date-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-green-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.day-duration-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.day-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.day-purpose {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.btn-complete-day {
+  flex: 0 0 auto;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-active);
+  border-radius: var(--radius-sm);
+  padding: 9px 13px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-complete-day.all-done {
+  background: var(--accent-green);
+  color: #ffffff;
+  border-color: var(--accent-green);
+}
+
+.btn-complete-day:active {
+  transform: scale(0.96);
+}
+
+/* Day Progress Bar */
+.day-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.day-progress-track {
+  flex: 1;
+  height: 7px;
+  background: var(--bg-base);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.day-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent-green);
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+.day-progress-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  min-width: 72px;
+  text-align: right;
+}
+
+/* Exercise Checklist ("Click-Click" at Exercise Level) */
+.exercise-list-hint {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  padding: 0 2px;
+}
+
+.hint-pill {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.exercise-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exercise-item {
+  width: 100%;
+  text-align: left;
+  background: var(--bg-elevated);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 13px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: transform 0.1s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.exercise-item:active {
+  transform: scale(0.985);
+}
+
+.exercise-item.done {
+  background: var(--accent-green-dim);
+  border-color: var(--accent-green);
+}
+
+.exercise-check-circle {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--text-muted);
+  background: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: transparent;
+  margin-top: 2px;
+  transition: all 0.15s ease;
+}
+
+.exercise-item.done .exercise-check-circle {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+  color: #ffffff;
+}
+
+.exercise-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.exercise-top-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.exercise-name {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.exercise-item.done .exercise-name {
+  color: var(--accent-green-bright);
+}
+
+.exercise-rec-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 8px;
+  background: var(--bg-rec-badge);
+  color: var(--accent-green-bright);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.exercise-item.type-run .exercise-rec-badge,
+.exercise-item.type-race .exercise-rec-badge {
+  color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+  border-color: rgba(2, 132, 199, 0.25);
+}
+
+.exercise-item.type-cricket .exercise-rec-badge {
+  color: var(--accent-amber);
+  background: var(--accent-amber-dim);
+  border-color: rgba(217, 119, 6, 0.25);
+}
+
+.exercise-detail {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.or-divider-badge {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-amber);
+  padding: 2px 0;
+}
+
+/* Optional Daily Note */
+.day-note-box {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.day-note-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.day-note-row {
+  display: flex;
+  gap: 8px;
+}
+
+.day-note-input {
+  flex: 1;
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.day-note-input:focus {
+  outline: none;
+  border-color: var(--accent-green);
+}
+
+.btn-save-note {
+  background: var(--bg-elevated);
+  color: var(--accent-green-bright);
+  border: 1px solid var(--border-active);
+  border-radius: var(--radius-sm);
+  padding: 0 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* TAB 2: 11-Week Calendar Overview */
+.section-intro-card,
+.guide-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.highlight-card {
+  border-color: var(--border-active);
+  background: var(--bg-highlight-grad);
+}
+
+.section-heading,
+.guide-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.section-subtext,
+.guide-note,
+.guide-body {
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+}
+
+.calendar-weeks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cal-week-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cal-week-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cal-week-title {
+  font-size: 0.94rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.cal-week-badges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.cal-badge-km {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-blue-dim);
+  color: var(--accent-blue);
+}
+
+.cal-badge-done {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-green-dim);
+  color: var(--accent-green-bright);
+}
+
+.cal-days-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+  gap: 7px;
+}
+
+.cal-day-cell {
+  text-align: left;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 9px 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+
+.cal-day-cell:active {
+  transform: scale(0.98);
+}
+
+.cal-day-cell.done {
+  border-color: var(--accent-green);
+  background: var(--accent-green-dim);
+}
+
+.cal-day-cell.partial {
+  border-color: var(--accent-amber);
+}
+
+.cal-day-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.cal-day-status {
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.cal-day-cell.done .cal-day-status {
+  color: var(--accent-green-bright);
+}
+
+.cal-day-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* TAB 3: Guides & Reference */
+.guide-kicker {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--accent-green-bright);
+}
+
+.guide-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.guide-row-item {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guide-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.guide-row-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.guide-row-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--accent-green-dim);
+  color: var(--accent-green-bright);
+}
+
+.guide-row-sub {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.baseline-callout,
+.effort-callout {
+  background: var(--accent-blue-dim);
+  border-left: 3px solid var(--accent-blue);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.strength-sessions-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.strength-template-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.strength-template-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--accent-green-bright);
+}
+
+.strength-ex-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.83rem;
+}
+
+.strength-ex-row:last-child {
+  border-bottom: none;
+}
+
+.strength-ex-sets {
+  font-weight: 700;
+  color: var(--accent-green-bright);
+}
+
+.backup-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-secondary {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-active);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Bottom Navigation */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  background: var(--bg-nav-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border-subtle);
+  padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  justify-content: space-around;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.nav-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.nav-tab.active {
+  color: var(--accent-green-bright);
+  background: var(--accent-green-dim);
+}
+
+.nav-icon {
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.nav-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* Toast Banner */
+.toast-banner {
+  position: fixed;
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--accent-green);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 9px 16px;
+  border-radius: 999px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 50;
+}
+
+.toast-banner.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+@media (max-width: 400px) {
+  .day-card-header {
+    flex-direction: column;
+  }
+  .btn-complete-day {
+    width: 100%;
+  }
+}

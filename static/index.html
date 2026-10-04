@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1310">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>SBI Green Marathon S7 — 11-Week Training Tracker</title>
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Sticky Header -->
+    <header class="app-header">
+      <div class="header-top">
+        <div class="brand-group">
+          <span class="race-badge">21.1 KM • DEC 20, 2026</span>
+          <h1 class="app-title">SBI Green Marathon S7</h1>
+          <p class="app-subtitle">Hyderabad • 5:00 AM • University of Hyderabad</p>
+        </div>
+        <div class="header-actions">
+          <button type="button" id="btn-theme-toggle" class="btn-icon-theme" title="Toggle Light / Dark Theme" aria-label="Toggle Light or Dark Theme">
+            ☀ Light
+          </button>
+          <button type="button" id="btn-today" class="btn-pill-today" title="Jump to Today / Current Day">
+            Today
+          </button>
+        </div>
+      </div>
+
+      <!-- Overall Progress Strip -->
+      <div class="overall-stats-bar">
+        <div class="stat-metric">
+          <span class="stat-label">Days Done</span>
+          <span class="stat-value" id="stat-days-done">0 / 77</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-metric">
+          <span class="stat-label">Exercises</span>
+          <span class="stat-value" id="stat-items-done">0 / 0</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-metric">
+          <span class="stat-label">Run Volume</span>
+          <span class="stat-value" id="stat-km-done">0 / 334.1 km</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-metric">
+          <span class="stat-label">Sync</span>
+          <span class="stat-value sync-indicator" id="sync-status">Ready</span>
+        </div>
+      </div>
+      <div class="overall-progress-track" aria-label="Overall program completion">
+        <div class="overall-progress-fill" id="overall-progress-fill"></div>
+      </div>
+    </header>
+
+    <!-- Main Scrollable Content Area -->
+    <main class="app-main">
+      <!-- TAB 1: DAILY WORKOUT TRACKER (Default) -->
+      <section id="view-daily" class="tab-view active" aria-label="Daily Workout Log">
+        <!-- Week Selector Strip -->
+        <div class="selector-section">
+          <div class="selector-header">
+            <span class="selector-label">Select Week (11 Weeks)</span>
+            <span class="week-date-range" id="selected-week-dates">Oct 5–11</span>
+          </div>
+          <div class="week-pills-scroll" id="week-pills-container" role="tablist" aria-label="Training Weeks"></div>
+        </div>
+
+        <!-- Phase Info Banner (Section 5) -->
+        <div class="phase-banner" id="phase-banner">
+          <div class="phase-banner-top">
+            <span class="phase-period-tag" id="phase-period-tag">Weeks 1–3</span>
+            <span class="phase-gym-tag" id="phase-gym-tag">3 sessions/week</span>
+            <span class="phase-km-tag" id="phase-km-tag">Target: 23 km</span>
+          </div>
+          <p class="phase-goal-text" id="phase-goal-text">Normal productive volume; establish routine.</p>
+        </div>
+
+        <!-- 7-Day Selector Strip (Mon–Sun) -->
+        <div class="day-tabs-grid" id="day-tabs-container" role="tablist" aria-label="Days of Week"></div>
+
+        <!-- Active Day Workout Card -->
+        <div class="day-card" id="active-day-card">
+          <div class="day-card-header">
+            <div class="day-meta">
+              <div class="day-date-row">
+                <span class="day-date-badge" id="day-date-badge">Mon, Oct 5</span>
+                <span class="day-duration-badge" id="day-duration-badge">60–80 min</span>
+              </div>
+              <h2 class="day-title" id="day-title">Lower-Body Strength</h2>
+              <p class="day-purpose" id="day-purpose">Main leg strength; avoid failure</p>
+            </div>
+            <button type="button" id="btn-complete-day" class="btn-complete-day">
+              Mark All Done
+            </button>
+          </div>
+
+          <!-- Day Progress Bar -->
+          <div class="day-progress-row">
+            <div class="day-progress-track">
+              <div class="day-progress-fill" id="day-progress-fill"></div>
+            </div>
+            <span class="day-progress-label" id="day-progress-label">0 of 6 done</span>
+          </div>
+
+          <!-- Tap-to-Complete Exercise List -->
+          <div class="exercise-list-hint">
+            <span>Tap any exercise below to mark complete</span>
+            <span class="hint-pill">Recommended Sets × Reps / Pace</span>
+          </div>
+          <div class="exercise-list" id="exercise-list-container"></div>
+
+          <!-- Optional Daily Quick Note -->
+          <div class="day-note-box">
+            <label for="day-note-input" class="day-note-label">Optional Quick Note (weights, pace, HR, or how legs felt)</label>
+            <div class="day-note-row">
+              <input
+                type="text"
+                id="day-note-input"
+                class="day-note-input"
+                maxlength="500"
+                placeholder="e.g., Squat 60kg felt smooth, easy run avg HR 136 bpm..."
+              >
+              <button type="button" id="btn-save-note" class="btn-save-note">Save</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: 11-WEEK CALENDAR OVERVIEW (Section 2) -->
+      <section id="view-calendar" class="tab-view" aria-label="11-Week Calendar">
+        <div class="section-intro-card">
+          <h2 class="section-heading">2. Detailed 11-Week Calendar</h2>
+          <p class="section-subtext">
+            Tap any day card in the 11-week calendar to open its exercise checklist. Race-week mileage varies depending on whether Saturday is a shakeout jog or complete rest.
+          </p>
+        </div>
+        <div class="calendar-weeks-list" id="calendar-weeks-container"></div>
+      </section>
+
+      <!-- TAB 3: PLAN GUIDES & REFERENCE (Sections 1, 3, 4, 5) -->
+      <section id="view-guides" class="tab-view" aria-label="Training Guides & Plan Details">
+        <!-- Plan Objective -->
+        <div class="guide-card highlight-card">
+          <span class="guide-kicker">PLAN OBJECTIVE</span>
+          <h2 class="guide-title">SBI Green Marathon S7 — 21.1 km</h2>
+          <p class="guide-body" id="guide-objective-text"></p>
+        </div>
+
+        <!-- Section 1: Your Weekly Structure -->
+        <div class="guide-card">
+          <h2 class="guide-title">1. Your Weekly Structure</h2>
+          <p class="guide-note" id="guide-why-structure"></p>
+          <div class="guide-stack" id="guide-weekly-structure"></div>
+        </div>
+
+        <!-- Section 3: Running Pace & Heart-Rate Guide -->
+        <div class="guide-card">
+          <h2 class="guide-title">3. Running Pace &amp; Heart-Rate Guide</h2>
+          <div class="guide-stack" id="guide-pace-list"></div>
+          <div class="baseline-callout">
+            <strong>Current Baseline Used:</strong>
+            <p id="guide-baseline-text"></p>
+          </div>
+        </div>
+
+        <!-- Section 4: Detailed Strength Plan -->
+        <div class="guide-card">
+          <h2 class="guide-title">4. Detailed Strength Plan</h2>
+          <p class="guide-note" id="guide-strength-principle"></p>
+          <div class="effort-callout" id="guide-strength-effort"></div>
+          <div class="strength-sessions-stack" id="guide-strength-sessions"></div>
+        </div>
+
+        <!-- Section 5: Strength Volume by Training Phase -->
+        <div class="guide-card">
+          <h2 class="guide-title">5. Strength Volume by Training Phase</h2>
+          <div class="guide-stack" id="guide-phases-list"></div>
+        </div>
+
+        <!-- Backup & Restore Card -->
+        <div class="guide-card">
+          <h2 class="guide-title">Backup &amp; Restore Progress</h2>
+          <p class="guide-note">
+            Your progress automatically saves to both your mobile browser and the server database. You can also export or restore a JSON backup anytime.
+          </p>
+          <div class="backup-actions">
+            <button type="button" id="btn-export-json" class="btn-secondary">Export Progress JSON</button>
+            <label for="input-import-json" class="btn-secondary file-label-btn">Import Progress JSON</label>
+            <input type="file" id="input-import-json" accept="application/json" class="sr-only">
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Mobile Navigation Bar -->
+    <nav class="bottom-nav" aria-label="Main Navigation">
+      <button type="button" class="nav-tab active" data-target="view-daily">
+        <span class="nav-icon" aria-hidden="true">✓</span>
+        <span class="nav-label">Daily Log</span>
+      </button>
+      <button type="button" class="nav-tab" data-target="view-calendar">
+        <span class="nav-icon" aria-hidden="true">▦</span>
+        <span class="nav-label">11-Wk Calendar</span>
+      </button>
+      <button type="button" class="nav-tab" data-target="view-guides">
+        <span class="nav-icon" aria-hidden="true">ℹ</span>
+        <span class="nav-label">Plan Guides (1–5)</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Non-blocking Toast Notification -->
+  <div id="toast-banner" class="toast-banner" role="status" aria-live="polite"></div>
+
+  <script src="/static/program_data.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

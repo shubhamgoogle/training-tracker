@@ -1,0 +1,9 @@
+{
+  "name": "SBI Green Marathon S7 Tracker",
+  "short_name": "S7 Marathon",
+  "description": "11-Week Half Marathon & Strength Training Tracker (Oct 5 – Dec 20, 2026)",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1310",
+  "theme_color": "#10b981"
+}
