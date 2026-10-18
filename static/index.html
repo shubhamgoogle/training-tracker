@@ -90,13 +90,31 @@
               <div class="day-date-row">
                 <span class="day-date-badge" id="day-date-badge">Mon, Oct 5</span>
                 <span class="day-duration-badge" id="day-duration-badge">60–80 min</span>
+                <span class="day-swapped-badge hidden" id="day-swapped-badge"></span>
               </div>
               <h2 class="day-title" id="day-title">Lower-Body Strength</h2>
               <p class="day-purpose" id="day-purpose">Main leg strength; avoid failure</p>
             </div>
-            <button type="button" id="btn-complete-day" class="btn-complete-day">
-              Mark All Done
-            </button>
+            <div class="day-header-actions">
+              <button type="button" id="btn-swap-routine" class="btn-swap-routine" aria-expanded="false" aria-controls="swap-routine-panel" title="Swap this day's routine with another day in the same week">
+                ⇄ Swap Day
+              </button>
+              <button type="button" id="btn-complete-day" class="btn-complete-day">
+                Mark All Done
+              </button>
+            </div>
+          </div>
+
+          <!-- Swap Routine Picker Panel (Within Same Week) -->
+          <div class="swap-routine-panel hidden" id="swap-routine-panel" role="region" aria-label="Swap routine within this week">
+            <div class="swap-panel-header">
+              <span class="swap-panel-title" id="swap-panel-title">Swap routine with another day in this week:</span>
+              <div class="swap-panel-actions">
+                <button type="button" id="btn-reset-week-swaps" class="btn-reset-swaps hidden">Reset Week</button>
+                <button type="button" id="btn-close-swap-panel" class="btn-close-swap" aria-label="Close swap menu">✕</button>
+              </div>
+            </div>
+            <div class="swap-days-grid" id="swap-days-grid"></div>
           </div>
 
           <!-- Day Progress Bar -->

@@ -31,13 +31,28 @@ logger = logging.getLogger("marathon_tracker")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.realpath(os.path.join(BASE_DIR, "static"))
 DEFAULT_DATA_DIR = os.path.join(BASE_DIR, "data")
+PERSISTENT_DIR = os.environ.get("PERSISTENT_DIR", DEFAULT_DATA_DIR)
 DB_PATH = os.environ.get("DB_PATH", os.path.join(DEFAULT_DATA_DIR, "tracker.db"))
+SNAPSHOT_PATH = os.environ.get(
+    "SNAPSHOT_PATH", os.path.join(PERSISTENT_DIR, "state_backup.json")
+)
 
 # Strict allow-list patterns for input validation
 ITEM_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 DAY_ID_PATTERN = re.compile(r"^w([1-9]|1[01])-d[1-7]$")
+WEEK_ID_PATTERN = re.compile(r"^w([1-9]|1[01])$")
+DEFAULT_DAY_ORDER = [1, 2, 3, 4, 5, 6, 7]
 MAX_BODY_BYTES = 65536
 MAX_NOTE_LENGTH = 500
+
+
+def is_valid_day_order(order: object) -> bool:
+    """Validate that order is a 7-element permutation of [1, 2, 3, 4, 5, 6, 7]."""
+    if not isinstance(order, list) or len(order) != 7:
+        return False
+    if not all(isinstance(x, int) and not isinstance(x, bool) for x in order):
+        return False
+    return sorted(order) == DEFAULT_DAY_ORDER
 
 # Rate limiting configuration (per IP)
 RATE_LIMIT_WINDOW_SEC = 60
@@ -54,31 +69,40 @@ _db_lock = threading.Lock()
 def get_secret_key() -> bytes:
     """Resolve secret key securely without hardcoded literals.
 
-    Resolution order: Environment -> Local Secret File -> Cryptographic RNG.
+    Resolution order: Environment -> Persistent Volume Secret File -> Local Secret File -> Cryptographic RNG.
     """
     env_secret = os.environ.get("SESSION_SECRET_KEY")
     if env_secret:
         return env_secret.encode("utf-8")
-    secret_file = os.path.join(DEFAULT_DATA_DIR, ".session_secret")
-    if os.path.exists(secret_file):
-        try:
-            with open(secret_file, "rb") as f:
-                data = f.read().strip()
-                if len(data) >= 32:
-                    return data
-        except OSError:
-            pass
+
+    candidate_files = [
+        os.path.join(PERSISTENT_DIR, ".session_secret"),
+        os.path.join(DEFAULT_DATA_DIR, ".session_secret"),
+    ]
+    for secret_file in candidate_files:
+        if os.path.exists(secret_file):
+            try:
+                with open(secret_file, "rb") as f:
+                    data = f.read().strip()
+                    if len(data) >= 32:
+                        return data
+            except OSError:
+                pass
+
     logger.warning(
-        "Generating ephemeral secret key. Set SESSION_SECRET_KEY in production for multi-instance consistency."
+        "Generating new session secret key and persisting to storage."
     )
     generated = secrets.token_hex(32).encode("utf-8")
-    try:
-        os.makedirs(DEFAULT_DATA_DIR, exist_ok=True)
-        with open(secret_file, "wb") as f:
-            f.write(generated)
-        os.chmod(secret_file, 0o600)
-    except OSError:
-        pass
+    for secret_file in candidate_files:
+        try:
+            parent = os.path.dirname(os.path.abspath(secret_file))
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            with open(secret_file, "wb") as f:
+                f.write(generated)
+            os.chmod(secret_file, 0o600)
+        except OSError:
+            pass
     return generated
 
 
@@ -90,8 +114,157 @@ SECRET_KEY = get_secret_key()
 SESSION_TTL_SECONDS = 86400 * 30  # 30-day finite session expiration
 
 
+def _read_state_from_conn(conn: sqlite3.Connection) -> dict:
+    """Read logs, notes, and swaps from an open SQLite connection."""
+    cur = conn.cursor()
+    cur.execute("SELECT item_id, completed, updated_at FROM exercise_logs")
+    logs = {
+        row[0]: {"completed": bool(row[1]), "updatedAt": int(row[2])}
+        for row in cur.fetchall()
+    }
+    cur.execute("SELECT day_id, note, updated_at FROM day_notes")
+    notes = {
+        row[0]: {"note": str(row[1]), "updatedAt": int(row[2])}
+        for row in cur.fetchall()
+    }
+    cur.execute("SELECT week_id, day_order, updated_at FROM week_swaps")
+    swaps = {}
+    for row in cur.fetchall():
+        try:
+            parsed_order = json.loads(str(row[1]))
+            if is_valid_day_order(parsed_order):
+                swaps[row[0]] = {
+                    "order": parsed_order,
+                    "updatedAt": int(row[2]),
+                }
+        except ValueError:
+            pass
+    return {"logs": logs, "notes": notes, "swaps": swaps}
+
+
+def _save_snapshot(conn: sqlite3.Connection) -> None:
+    """Persist full database state to SNAPSHOT_PATH (backed by Cloud Storage volume in Cloud Run)."""
+    try:
+        snapshot_dir = os.path.dirname(os.path.abspath(SNAPSHOT_PATH))
+        if snapshot_dir:
+            os.makedirs(snapshot_dir, exist_ok=True)
+        state_data = _read_state_from_conn(conn)
+        payload = json.dumps(state_data)
+        with open(SNAPSHOT_PATH, "w", encoding="utf-8") as f:
+            f.write(payload)
+    except OSError:
+        logger.warning("Could not write state snapshot to %s", SNAPSHOT_PATH)
+
+
+def _restore_from_snapshot(conn: sqlite3.Connection) -> None:
+    """Restore saved logs, notes, and swaps from persistent SNAPSHOT_PATH on container startup."""
+    if not os.path.exists(SNAPSHOT_PATH):
+        return
+    try:
+        with open(SNAPSHOT_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return
+    except (OSError, ValueError):
+        logger.warning("Could not read state snapshot from %s", SNAPSHOT_PATH)
+        return
+
+    logs = data.get("logs", {})
+    notes = data.get("notes", {})
+    swaps = data.get("swaps", {})
+
+    if isinstance(logs, dict):
+        log_rows = []
+        for item_id, meta in list(logs.items())[:1000]:
+            if (
+                isinstance(item_id, str)
+                and ITEM_ID_PATTERN.match(item_id)
+                and isinstance(meta, dict)
+            ):
+                completed = meta.get("completed")
+                updated_at = meta.get("updatedAt")
+                if (
+                    isinstance(completed, bool)
+                    and isinstance(updated_at, int)
+                    and updated_at >= 0
+                ):
+                    log_rows.append((item_id, 1 if completed else 0, updated_at))
+        if log_rows:
+            conn.executemany(
+                """
+                INSERT INTO exercise_logs (item_id, completed, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(item_id) DO UPDATE SET
+                    completed = excluded.completed,
+                    updated_at = excluded.updated_at
+                WHERE excluded.updated_at >= exercise_logs.updated_at
+                """,
+                log_rows,
+            )
+
+    if isinstance(notes, dict):
+        note_rows = []
+        for day_id, meta in list(notes.items())[:100]:
+            if (
+                isinstance(day_id, str)
+                and DAY_ID_PATTERN.match(day_id)
+                and isinstance(meta, dict)
+            ):
+                note = meta.get("note")
+                updated_at = meta.get("updatedAt")
+                if (
+                    isinstance(note, str)
+                    and len(note) <= MAX_NOTE_LENGTH
+                    and isinstance(updated_at, int)
+                    and updated_at >= 0
+                ):
+                    note_rows.append((day_id, note.strip(), updated_at))
+        if note_rows:
+            conn.executemany(
+                """
+                INSERT INTO day_notes (day_id, note, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(day_id) DO UPDATE SET
+                    note = excluded.note,
+                    updated_at = excluded.updated_at
+                WHERE excluded.updated_at >= day_notes.updated_at
+                """,
+                note_rows,
+            )
+
+    if isinstance(swaps, dict):
+        swap_rows = []
+        for week_id, meta in list(swaps.items())[:20]:
+            if (
+                isinstance(week_id, str)
+                and WEEK_ID_PATTERN.match(week_id)
+                and isinstance(meta, dict)
+            ):
+                order = meta.get("order")
+                updated_at = meta.get("updatedAt")
+                if (
+                    is_valid_day_order(order)
+                    and isinstance(updated_at, int)
+                    and not isinstance(updated_at, bool)
+                    and updated_at >= 0
+                ):
+                    swap_rows.append((week_id, json.dumps(order), updated_at))
+        if swap_rows:
+            conn.executemany(
+                """
+                INSERT INTO week_swaps (week_id, day_order, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(week_id) DO UPDATE SET
+                    day_order = excluded.day_order,
+                    updated_at = excluded.updated_at
+                WHERE excluded.updated_at >= week_swaps.updated_at
+                """,
+                swap_rows,
+            )
+
+
 def init_db() -> None:
-    """Initialize SQLite schema with parameterized tables."""
+    """Initialize SQLite schema and restore state from persistent storage snapshot."""
     db_dir = os.path.dirname(os.path.abspath(DB_PATH))
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
@@ -117,6 +290,16 @@ def init_db() -> None:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS week_swaps (
+                    week_id TEXT PRIMARY KEY,
+                    day_order TEXT NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+                """
+            )
+            _restore_from_snapshot(conn)
             conn.commit()
         finally:
             conn.close()
@@ -360,6 +543,8 @@ class TrackerRequestHandler(BaseHTTPRequestHandler):
                 self._handle_day_batch(data)
             elif route == "/api/note":
                 self._handle_note(data)
+            elif route == "/api/swap":
+                self._handle_swap(data)
             elif route == "/api/sync":
                 self._handle_sync(data)
             else:
@@ -439,20 +624,7 @@ class TrackerRequestHandler(BaseHTTPRequestHandler):
         with _db_lock:
             conn = sqlite3.connect(DB_PATH)
             try:
-                cur = conn.cursor()
-                cur.execute(
-                    "SELECT item_id, completed, updated_at FROM exercise_logs"
-                )
-                logs = {
-                    row[0]: {"completed": bool(row[1]), "updatedAt": int(row[2])}
-                    for row in cur.fetchall()
-                }
-                cur.execute("SELECT day_id, note, updated_at FROM day_notes")
-                notes = {
-                    row[0]: {"note": str(row[1]), "updatedAt": int(row[2])}
-                    for row in cur.fetchall()
-                }
-                return {"logs": logs, "notes": notes}
+                return _read_state_from_conn(conn)
             finally:
                 conn.close()
 
@@ -485,6 +657,7 @@ class TrackerRequestHandler(BaseHTTPRequestHandler):
                     (item_id, 1 if completed else 0, updated_at),
                 )
                 conn.commit()
+                _save_snapshot(conn)
             finally:
                 conn.close()
 
@@ -533,6 +706,7 @@ class TrackerRequestHandler(BaseHTTPRequestHandler):
                     validated_rows,
                 )
                 conn.commit()
+                _save_snapshot(conn)
             finally:
                 conn.close()
 
@@ -568,6 +742,7 @@ class TrackerRequestHandler(BaseHTTPRequestHandler):
                     (day_id, clean_note, updated_at),
                 )
                 conn.commit()
+                _save_snapshot(conn)
             finally:
                 conn.close()
 
@@ -576,11 +751,58 @@ class TrackerRequestHandler(BaseHTTPRequestHandler):
             {"ok": True, "dayId": day_id, "note": clean_note, "updatedAt": updated_at},
         )
 
+    def _handle_swap(self, data: dict) -> None:
+        week_id = data.get("weekId")
+        order = data.get("order")
+        updated_at = data.get("updatedAt")
+
+        if not isinstance(week_id, str) or not WEEK_ID_PATTERN.match(week_id):
+            self._send_json(400, {"error": "Invalid weekId format"})
+            return
+        if not is_valid_day_order(order):
+            self._send_json(
+                400,
+                {"error": "order must be a 7-day permutation within the same week"},
+            )
+            return
+        if not isinstance(updated_at, int) or isinstance(updated_at, bool) or updated_at < 0:
+            updated_at = int(time.time() * 1000)
+
+        serialized_order = json.dumps(order)
+        with _db_lock:
+            conn = sqlite3.connect(DB_PATH)
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO week_swaps (week_id, day_order, updated_at)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(week_id) DO UPDATE SET
+                        day_order = excluded.day_order,
+                        updated_at = excluded.updated_at
+                    WHERE excluded.updated_at >= week_swaps.updated_at
+                    """,
+                    (week_id, serialized_order, updated_at),
+                )
+                conn.commit()
+                _save_snapshot(conn)
+            finally:
+                conn.close()
+
+        self._send_json(
+            200,
+            {"ok": True, "weekId": week_id, "order": order, "updatedAt": updated_at},
+        )
+
     def _handle_sync(self, data: dict) -> None:
         """Synchronize client localStorage state with server SQLite database."""
         client_logs = data.get("logs", {})
         client_notes = data.get("notes", {})
-        if not isinstance(client_logs, dict) or not isinstance(client_notes, dict):
+        client_swaps = data.get("swaps", {})
+        if (
+            not isinstance(client_logs, dict)
+            or not isinstance(client_notes, dict)
+            or not isinstance(client_swaps, dict)
+        ):
             self._send_json(400, {"error": "Invalid sync payload structure"})
             return
 
@@ -611,6 +833,22 @@ class TrackerRequestHandler(BaseHTTPRequestHandler):
             ):
                 note_rows.append((day_id, note.strip(), updated_at))
 
+        swap_rows = []
+        for week_id, meta in list(client_swaps.items())[:20]:
+            if not isinstance(week_id, str) or not WEEK_ID_PATTERN.match(week_id):
+                continue
+            if not isinstance(meta, dict):
+                continue
+            order = meta.get("order")
+            updated_at = meta.get("updatedAt")
+            if (
+                is_valid_day_order(order)
+                and isinstance(updated_at, int)
+                and not isinstance(updated_at, bool)
+                and updated_at >= 0
+            ):
+                swap_rows.append((week_id, json.dumps(order), updated_at))
+
         with _db_lock:
             conn = sqlite3.connect(DB_PATH)
             try:
@@ -638,11 +876,25 @@ class TrackerRequestHandler(BaseHTTPRequestHandler):
                         """,
                         note_rows,
                     )
+                if swap_rows:
+                    conn.executemany(
+                        """
+                        INSERT INTO week_swaps (week_id, day_order, updated_at)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(week_id) DO UPDATE SET
+                            day_order = excluded.day_order,
+                            updated_at = excluded.updated_at
+                        WHERE excluded.updated_at >= week_swaps.updated_at
+                        """,
+                        swap_rows,
+                    )
                 conn.commit()
+                if log_rows or note_rows or swap_rows:
+                    _save_snapshot(conn)
+                merged_state = _read_state_from_conn(conn)
             finally:
                 conn.close()
 
-        merged_state = self._fetch_db_state()
         self._send_json(200, merged_state)
 
 

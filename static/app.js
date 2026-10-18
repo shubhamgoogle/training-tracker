@@ -14,12 +14,77 @@
   let csrfToken = "";
   let state = {
     logs: {}, // { [itemId]: { completed: boolean, updatedAt: number } }
-    notes: {} // { [dayId]: { note: string, updatedAt: number } }
+    notes: {}, // { [dayId]: { note: string, updatedAt: number } }
+    swaps: {} // { [weekId]: { order: number[], updatedAt: number } }
   };
+
+  const DEFAULT_DAY_ORDER = [1, 2, 3, 4, 5, 6, 7];
 
   let activeWeekNum = 1;
   let activeDayIndex = 1; // 1 = Mon ... 7 = Sun
+  let swapPanelOpen = false;
   let toastTimeoutId = null;
+
+  function isValidDayOrder(order) {
+    if (!Array.isArray(order) || order.length !== 7) return false;
+    const seen = new Set();
+    for (let i = 0; i < 7; i += 1) {
+      const val = order[i];
+      if (typeof val !== "number" || !Number.isInteger(val) || val < 1 || val > 7) {
+        return false;
+      }
+      seen.add(val);
+    }
+    return seen.size === 7;
+  }
+
+  function getWeekDayOrder(weekNum) {
+    const wId = `w${weekNum}`;
+    const entry = state.swaps && state.swaps[wId];
+    if (entry && isValidDayOrder(entry.order)) {
+      return entry.order.slice();
+    }
+    return DEFAULT_DAY_ORDER.slice();
+  }
+
+  function isWeekSwapped(weekNum) {
+    const order = getWeekDayOrder(weekNum);
+    return order.some((val, idx) => val !== idx + 1);
+  }
+
+  /**
+   * Return the 7 calendar days of `weekObj` with their currently assigned routine
+   * (taking into account any within-week routine swaps).
+   */
+  function getEffectiveDaysForWeek(weekObj) {
+    const order = getWeekDayOrder(weekObj.week);
+    return weekObj.days.map((slotDay) => {
+      const routineDayIndex = order[slotDay.dayIndex - 1] || slotDay.dayIndex;
+      const routineDay =
+        weekObj.days.find((d) => d.dayIndex === routineDayIndex) || slotDay;
+      return {
+        slotId: slotDay.id,
+        week: slotDay.week,
+        dayIndex: slotDay.dayIndex,
+        dayName: slotDay.dayName,
+        shortDay: slotDay.shortDay,
+        isoDate: slotDay.isoDate,
+        displayDate: slotDay.displayDate,
+        // Routine properties from the assigned routine day within the same week
+        id: routineDay.id,
+        routineDayIndex: routineDay.dayIndex,
+        originalDayName: routineDay.dayName,
+        originalShortDay: routineDay.shortDay,
+        isSwapped: routineDay.dayIndex !== slotDay.dayIndex,
+        calendarLabel: routineDay.calendarLabel,
+        title: routineDay.title,
+        duration: routineDay.duration,
+        purpose: routineDay.purpose,
+        category: routineDay.category,
+        items: routineDay.items
+      };
+    });
+  }
 
   function loadLocalCache() {
     try {
@@ -33,6 +98,9 @@
         if (parsed.notes && typeof parsed.notes === "object") {
           state.notes = parsed.notes;
         }
+        if (parsed.swaps && typeof parsed.swaps === "object") {
+          state.swaps = parsed.swaps;
+        }
       }
     } catch (_err) {
       // Ignore storage access errors in private browsing
@@ -43,7 +111,7 @@
     try {
       window.localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ logs: state.logs, notes: state.notes })
+        JSON.stringify({ logs: state.logs, notes: state.notes, swaps: state.swaps })
       );
     } catch (_err) {
       // Ignore quota errors
@@ -217,13 +285,31 @@
         }
       });
 
+      const mergedSwaps = Object.assign({}, serverData.swaps || {});
+      Object.keys(state.swaps || {}).forEach((weekId) => {
+        const localSwap = state.swaps[weekId];
+        const srvSwap = mergedSwaps[weekId];
+        if (
+          localSwap &&
+          isValidDayOrder(localSwap.order) &&
+          (!srvSwap || localSwap.updatedAt >= srvSwap.updatedAt)
+        ) {
+          mergedSwaps[weekId] = localSwap;
+        }
+      });
+
       state.logs = mergedLogs;
       state.notes = mergedNotes;
+      state.swaps = mergedSwaps;
       saveLocalCache();
       renderAll();
 
       // Push merged state back so ephemeral Cloud Run instances stay hydrated
-      if (csrfToken && (Object.keys(state.logs).length > 0 || Object.keys(state.notes).length > 0)) {
+      const hasData =
+        Object.keys(state.logs).length > 0 ||
+        Object.keys(state.notes).length > 0 ||
+        Object.keys(state.swaps).length > 0;
+      if (csrfToken && hasData) {
         const postRes = await window.fetch("/api/sync", {
           method: "POST",
           credentials: "same-origin",
@@ -231,12 +317,17 @@
             "Content-Type": "application/json",
             "X-CSRF-Token": csrfToken
           },
-          body: JSON.stringify({ logs: state.logs, notes: state.notes })
+          body: JSON.stringify({
+            logs: state.logs,
+            notes: state.notes,
+            swaps: state.swaps
+          })
         });
         if (postRes.ok) {
           const synced = await postRes.json();
           if (synced.logs) state.logs = synced.logs;
           if (synced.notes) state.notes = synced.notes;
+          if (synced.swaps) state.swaps = synced.swaps;
           saveLocalCache();
           renderAll();
         }
@@ -244,6 +335,48 @@
       setSyncIndicator("Synced", false);
     } catch (_err) {
       setSyncIndicator("Local Saved", true);
+    }
+  }
+
+  async function postWithAutoSync(url, payload) {
+    try {
+      setSyncIndicator("Saving...", false);
+      if (!csrfToken) {
+        await syncWithServer();
+      }
+      if (!csrfToken) {
+        setSyncIndicator("Local Saved", true);
+        return false;
+      }
+      let res = await window.fetch(url, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.status === 403) {
+        // Session or CSRF token rotated after a deployment/restart — refresh session & sync
+        await syncWithServer();
+        if (csrfToken) {
+          res = await window.fetch(url, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrfToken
+            },
+            body: JSON.stringify(payload)
+          });
+        }
+      }
+      setSyncIndicator(res.ok ? "Synced" : "Local Saved", !res.ok);
+      return res.ok;
+    } catch (_err) {
+      setSyncIndicator("Local Saved", true);
+      return false;
     }
   }
 
@@ -272,22 +405,7 @@
 
     showToast(nextDone ? `Completed: ${item.name}` : `Unchecked: ${item.name}`);
 
-    if (!csrfToken) return;
-    try {
-      setSyncIndicator("Saving...", false);
-      const res = await window.fetch("/api/day-batch", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": csrfToken
-        },
-        body: JSON.stringify({ items: batchUpdates })
-      });
-      setSyncIndicator(res.ok ? "Synced" : "Local Saved", !res.ok);
-    } catch (_err) {
-      setSyncIndicator("Local Saved", true);
-    }
+    await postWithAutoSync("/api/day-batch", { items: batchUpdates });
   }
 
   async function toggleEntireDay(day) {
@@ -335,22 +453,8 @@
         : `${day.dayName} (${day.displayDate}) reset`
     );
 
-    if (!csrfToken || batchUpdates.length === 0) return;
-    try {
-      setSyncIndicator("Saving...", false);
-      const res = await window.fetch("/api/day-batch", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": csrfToken
-        },
-        body: JSON.stringify({ items: batchUpdates })
-      });
-      setSyncIndicator(res.ok ? "Synced" : "Local Saved", !res.ok);
-    } catch (_err) {
-      setSyncIndicator("Local Saved", true);
-    }
+    if (batchUpdates.length === 0) return;
+    await postWithAutoSync("/api/day-batch", { items: batchUpdates });
   }
 
   async function saveDayNote(dayId, noteText) {
@@ -360,22 +464,53 @@
     saveLocalCache();
     showToast("Note saved");
 
-    if (!csrfToken) return;
-    try {
-      setSyncIndicator("Saving...", false);
-      const res = await window.fetch("/api/note", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": csrfToken
-        },
-        body: JSON.stringify({ dayId, note: clean, updatedAt: nowMs })
-      });
-      setSyncIndicator(res.ok ? "Synced" : "Local Saved", !res.ok);
-    } catch (_err) {
-      setSyncIndicator("Local Saved", true);
+    await postWithAutoSync("/api/note", { dayId, note: clean, updatedAt: nowMs });
+  }
+
+  async function persistWeekSwap(weekId, order, updatedAt) {
+    await postWithAutoSync("/api/swap", { weekId, order, updatedAt });
+  }
+
+  async function swapDaysInWeek(weekNum, dayIndexA, dayIndexB) {
+    if (dayIndexA === dayIndexB) return;
+    const wId = `w${weekNum}`;
+    const order = getWeekDayOrder(weekNum);
+    const idxA = dayIndexA - 1;
+    const idxB = dayIndexB - 1;
+    if (idxA < 0 || idxA >= 7 || idxB < 0 || idxB >= 7) return;
+
+    const temp = order[idxA];
+    order[idxA] = order[idxB];
+    order[idxB] = temp;
+
+    const nowMs = Date.now();
+    state.swaps[wId] = { order, updatedAt: nowMs };
+    swapPanelOpen = false;
+    saveLocalCache();
+    renderAll();
+
+    const weekObj = DATA.weeks.find((w) => w.week === weekNum);
+    const dayA = weekObj && weekObj.days.find((d) => d.dayIndex === dayIndexA);
+    const dayB = weekObj && weekObj.days.find((d) => d.dayIndex === dayIndexB);
+    if (dayA && dayB) {
+      showToast(`Swapped ${dayA.shortDay} & ${dayB.shortDay} routines (Week ${weekNum})`);
+    } else {
+      showToast(`Routine swapped in Week ${weekNum}`);
     }
+
+    await persistWeekSwap(wId, order, nowMs);
+  }
+
+  async function resetWeekSwaps(weekNum) {
+    const wId = `w${weekNum}`;
+    const order = DEFAULT_DAY_ORDER.slice();
+    const nowMs = Date.now();
+    state.swaps[wId] = { order, updatedAt: nowMs };
+    swapPanelOpen = false;
+    saveLocalCache();
+    renderAll();
+    showToast(`Week ${weekNum} routines restored to default schedule`);
+    await persistWeekSwap(wId, order, nowMs);
   }
 
   // Rendering Functions (Using strict createElement / textContent / replaceChildren)
@@ -413,7 +548,7 @@
 
       const titleSpan = document.createElement("span");
       titleSpan.className = "week-pill-title";
-      titleSpan.textContent = `W${w.week}`;
+      titleSpan.textContent = isWeekSwapped(w.week) ? `W${w.week} ⇄` : `W${w.week}`;
 
       const subSpan = document.createElement("span");
       subSpan.className = "week-pill-sub";
@@ -423,6 +558,9 @@
       btn.appendChild(subSpan);
 
       btn.addEventListener("click", () => {
+        if (activeWeekNum !== w.week) {
+          swapPanelOpen = false;
+        }
         activeWeekNum = w.week;
         renderAll();
       });
@@ -433,7 +571,9 @@
 
   function renderDailyView() {
     const weekObj = DATA.weeks.find((w) => w.week === activeWeekNum) || DATA.weeks[0];
-    const dayObj = weekObj.days.find((d) => d.dayIndex === activeDayIndex) || weekObj.days[0];
+    const effectiveDays = getEffectiveDaysForWeek(weekObj);
+    const dayObj =
+      effectiveDays.find((d) => d.dayIndex === activeDayIndex) || effectiveDays[0];
 
     // Week dates & Phase banner
     const weekDatesEl = document.getElementById("selected-week-dates");
@@ -455,7 +595,7 @@
     const dayTabsContainer = document.getElementById("day-tabs-container");
     if (dayTabsContainer) {
       dayTabsContainer.replaceChildren();
-      weekObj.days.forEach((d) => {
+      effectiveDays.forEach((d) => {
         const prog = getDayProgress(d);
         const btn = document.createElement("button");
         btn.type = "button";
@@ -463,10 +603,13 @@
         if (d.dayIndex === activeDayIndex) {
           btn.classList.add("active");
         }
+        if (d.isSwapped) {
+          btn.classList.add("is-swapped");
+        }
 
         const nameSpan = document.createElement("span");
         nameSpan.className = "day-tab-name";
-        nameSpan.textContent = d.shortDay;
+        nameSpan.textContent = d.isSwapped ? `${d.shortDay}⇄` : d.shortDay;
 
         const numSpan = document.createElement("span");
         numSpan.className = "day-tab-num";
@@ -480,6 +623,9 @@
         btn.appendChild(dotSpan);
 
         btn.addEventListener("click", () => {
+          if (activeDayIndex !== d.dayIndex) {
+            swapPanelOpen = false;
+          }
           activeDayIndex = d.dayIndex;
           renderAll();
         });
@@ -491,16 +637,101 @@
     // Active Day Header & Progress
     const dateBadge = document.getElementById("day-date-badge");
     const durationBadge = document.getElementById("day-duration-badge");
+    const swappedBadge = document.getElementById("day-swapped-badge");
     const titleEl = document.getElementById("day-title");
     const purposeEl = document.getElementById("day-purpose");
+    const btnSwapRoutine = document.getElementById("btn-swap-routine");
     const btnCompleteDay = document.getElementById("btn-complete-day");
+    const swapPanel = document.getElementById("swap-routine-panel");
+    const swapPanelTitle = document.getElementById("swap-panel-title");
+    const btnResetWeekSwaps = document.getElementById("btn-reset-week-swaps");
+    const btnCloseSwapPanel = document.getElementById("btn-close-swap-panel");
+    const swapDaysGrid = document.getElementById("swap-days-grid");
     const dayFill = document.getElementById("day-progress-fill");
     const dayLabel = document.getElementById("day-progress-label");
 
     if (dateBadge) dateBadge.textContent = `${dayObj.dayName}, ${dayObj.displayDate}`;
     if (durationBadge) durationBadge.textContent = dayObj.duration;
+    if (swappedBadge) {
+      if (dayObj.isSwapped) {
+        swappedBadge.textContent = `⇄ Swapped from ${dayObj.originalShortDay}`;
+        swappedBadge.classList.remove("hidden");
+      } else {
+        swappedBadge.textContent = "";
+        swappedBadge.classList.add("hidden");
+      }
+    }
     if (titleEl) titleEl.textContent = dayObj.title;
     if (purposeEl) purposeEl.textContent = dayObj.purpose;
+
+    if (btnSwapRoutine) {
+      btnSwapRoutine.setAttribute("aria-expanded", swapPanelOpen ? "true" : "false");
+      btnSwapRoutine.classList.toggle("active", swapPanelOpen);
+      btnSwapRoutine.onclick = () => {
+        swapPanelOpen = !swapPanelOpen;
+        renderDailyView();
+      };
+    }
+
+    if (swapPanel) {
+      swapPanel.classList.toggle("hidden", !swapPanelOpen);
+    }
+    if (swapPanelTitle) {
+      swapPanelTitle.textContent = `Swap ${dayObj.dayName}'s routine (${dayObj.calendarLabel}) with another day in Week ${weekObj.week}:`;
+    }
+    if (btnResetWeekSwaps) {
+      const weekHasSwaps = isWeekSwapped(weekObj.week);
+      btnResetWeekSwaps.classList.toggle("hidden", !weekHasSwaps);
+      btnResetWeekSwaps.onclick = () => resetWeekSwaps(weekObj.week);
+    }
+    if (btnCloseSwapPanel) {
+      btnCloseSwapPanel.onclick = () => {
+        swapPanelOpen = false;
+        renderDailyView();
+      };
+    }
+    if (swapDaysGrid && swapPanelOpen) {
+      swapDaysGrid.replaceChildren();
+      effectiveDays.forEach((otherDay) => {
+        if (otherDay.dayIndex === dayObj.dayIndex) return;
+
+        const optBtn = document.createElement("button");
+        optBtn.type = "button";
+        optBtn.className = "swap-day-option";
+        if (otherDay.isSwapped) {
+          optBtn.classList.add("is-swapped");
+        }
+
+        const optTop = document.createElement("div");
+        optTop.className = "swap-opt-top";
+
+        const optDay = document.createElement("span");
+        optDay.className = "swap-opt-day";
+        optDay.textContent = `${otherDay.shortDay}, ${otherDay.displayDate}`;
+
+        const optBadge = document.createElement("span");
+        optBadge.className = "swap-opt-badge";
+        optBadge.textContent = otherDay.isSwapped
+          ? `Orig: ${otherDay.originalShortDay} ⇄`
+          : "⇄ Swap";
+
+        optTop.appendChild(optDay);
+        optTop.appendChild(optBadge);
+
+        const optRoutine = document.createElement("div");
+        optRoutine.className = "swap-opt-routine";
+        optRoutine.textContent = otherDay.calendarLabel;
+
+        optBtn.appendChild(optTop);
+        optBtn.appendChild(optRoutine);
+
+        optBtn.addEventListener("click", () => {
+          swapDaysInWeek(weekObj.week, dayObj.dayIndex, otherDay.dayIndex);
+        });
+
+        swapDaysGrid.appendChild(optBtn);
+      });
+    }
 
     const dayProg = getDayProgress(dayObj);
     if (btnCompleteDay) {
@@ -603,6 +834,7 @@
     container.replaceChildren();
 
     DATA.weeks.forEach((w) => {
+      const effectiveDays = getEffectiveDaysForWeek(w);
       const card = document.createElement("div");
       card.className = "cal-week-card";
 
@@ -616,11 +848,18 @@
       const badges = document.createElement("div");
       badges.className = "cal-week-badges";
 
+      if (isWeekSwapped(w.week)) {
+        const swapBadge = document.createElement("span");
+        swapBadge.className = "cal-badge-swapped";
+        swapBadge.textContent = "⇄ Swapped";
+        badges.appendChild(swapBadge);
+      }
+
       const kmBadge = document.createElement("span");
       kmBadge.className = "cal-badge-km";
       kmBadge.textContent = w.runKmDisplay;
 
-      const doneDaysCount = w.days.filter((d) => getDayProgress(d).isComplete).length;
+      const doneDaysCount = effectiveDays.filter((d) => getDayProgress(d).isComplete).length;
       const doneBadge = document.createElement("span");
       doneBadge.className = "cal-badge-done";
       doneBadge.textContent = `${doneDaysCount}/7 days`;
@@ -633,17 +872,22 @@
       const grid = document.createElement("div");
       grid.className = "cal-days-grid";
 
-      w.days.forEach((d) => {
+      effectiveDays.forEach((d) => {
         const prog = getDayProgress(d);
         const cell = document.createElement("button");
         cell.type = "button";
         cell.className = `cal-day-cell ${prog.status}`;
+        if (d.isSwapped) {
+          cell.classList.add("is-swapped");
+        }
 
         const top = document.createElement("div");
         top.className = "cal-day-top";
 
         const daySpan = document.createElement("span");
-        daySpan.textContent = `${d.shortDay} • ${d.displayDate}`;
+        daySpan.textContent = d.isSwapped
+          ? `${d.shortDay} • ${d.displayDate} (⇄${d.originalShortDay})`
+          : `${d.shortDay} • ${d.displayDate}`;
 
         const statusSpan = document.createElement("span");
         statusSpan.className = "cal-day-status";
@@ -665,6 +909,7 @@
         cell.appendChild(label);
 
         cell.addEventListener("click", () => {
+          swapPanelOpen = false;
           activeWeekNum = w.week;
           activeDayIndex = d.dayIndex;
           switchTab("view-daily");
@@ -877,6 +1122,9 @@
               if (imported.notes && typeof imported.notes === "object") {
                 Object.assign(state.notes, imported.notes);
               }
+              if (imported.swaps && typeof imported.swaps === "object") {
+                Object.assign(state.swaps, imported.swaps);
+              }
               saveLocalCache();
               renderAll();
               await syncWithServer();
@@ -976,6 +1224,15 @@
     setupBackupHandlers();
     renderAll();
     syncWithServer();
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        syncWithServer();
+      }
+    });
+    window.addEventListener("online", () => {
+      syncWithServer();
+    });
   }
 
   if (document.readyState === "loading") {

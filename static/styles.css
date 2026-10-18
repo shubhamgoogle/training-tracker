@@ -431,6 +431,18 @@ label {
   color: var(--accent-green-bright);
 }
 
+.day-tab-btn.is-swapped {
+  border-color: rgba(192, 132, 252, 0.45);
+}
+
+.day-tab-btn.is-swapped .day-tab-name {
+  color: var(--accent-purple);
+}
+
+.hidden {
+  display: none !important;
+}
+
 /* Active Day Workout Card */
 .day-card {
   background: var(--bg-surface);
@@ -480,6 +492,16 @@ label {
   border-radius: 999px;
 }
 
+.day-swapped-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent-purple);
+  background: var(--accent-purple-dim);
+  border: 1px solid rgba(192, 132, 252, 0.35);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
 .day-title {
   font-size: 1.15rem;
   font-weight: 800;
@@ -490,6 +512,38 @@ label {
 .day-purpose {
   font-size: 0.82rem;
   color: var(--text-secondary);
+}
+
+.day-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.btn-swap-routine {
+  flex: 0 0 auto;
+  background: var(--bg-elevated);
+  color: var(--accent-purple);
+  border: 1px solid rgba(192, 132, 252, 0.45);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-swap-routine.active,
+.btn-swap-routine:hover {
+  background: var(--accent-purple-dim);
+  border-color: var(--accent-purple);
+}
+
+.btn-swap-routine:active {
+  transform: scale(0.96);
 }
 
 .btn-complete-day {
@@ -513,6 +567,124 @@ label {
 
 .btn-complete-day:active {
   transform: scale(0.96);
+}
+
+/* Swap Routine Picker Panel */
+.swap-routine-panel {
+  background: var(--bg-base);
+  border: 1px solid rgba(192, 132, 252, 0.38);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.swap-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.swap-panel-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.swap-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-reset-swaps {
+  background: var(--accent-amber-dim);
+  color: var(--accent-amber);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 8px;
+  padding: 4px 9px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-close-swap {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.swap-days-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.swap-day-option {
+  text-align: left;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 9px 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+
+.swap-day-option:hover {
+  border-color: var(--accent-purple);
+  background: var(--bg-elevated);
+}
+
+.swap-day-option:active {
+  transform: scale(0.98);
+}
+
+.swap-day-option.is-swapped {
+  border-color: rgba(192, 132, 252, 0.4);
+}
+
+.swap-opt-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.swap-opt-day {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--accent-green-bright);
+}
+
+.swap-opt-badge {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--accent-purple);
+  background: var(--accent-purple-dim);
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.swap-opt-routine {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 /* Day Progress Bar */
@@ -791,6 +963,15 @@ label {
   align-items: center;
 }
 
+.cal-badge-swapped {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-purple-dim);
+  color: var(--accent-purple);
+}
+
 .cal-badge-km {
   font-size: 0.72rem;
   font-weight: 700;
@@ -827,6 +1008,10 @@ label {
   gap: 3px;
   color: var(--text-primary);
   transition: border-color 0.15s ease, transform 0.1s ease;
+}
+
+.cal-day-cell.is-swapped {
+  border-color: rgba(192, 132, 252, 0.45);
 }
 
 .cal-day-cell:active {
@@ -1065,7 +1250,12 @@ label {
   .day-card-header {
     flex-direction: column;
   }
-  .btn-complete-day {
+  .day-header-actions {
     width: 100%;
+  }
+  .btn-swap-routine,
+  .btn-complete-day {
+    flex: 1;
+    text-align: center;
   }
 }

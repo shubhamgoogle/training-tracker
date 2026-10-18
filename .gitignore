@@ -2,6 +2,7 @@ __pycache__/
 *.py[cod]
 .venv/
 data/
+storage/
 *.db
 .session_secret
 .DS_Store

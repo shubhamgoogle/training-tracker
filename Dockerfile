@@ -8,13 +8,14 @@ WORKDIR /app
 COPY server.py /app/server.py
 COPY static /app/static
 
-RUN mkdir -p /app/data && chown -R appuser:appuser /app
+RUN mkdir -p /app/data /app/storage && chown -R appuser:appuser /app
 
 USER appuser
 
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
 ENV DB_PATH=/app/data/tracker.db
+ENV PERSISTENT_DIR=/app/storage
 
 EXPOSE 8080
 
